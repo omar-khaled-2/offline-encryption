@@ -25,7 +25,7 @@ struct VideoMetadata {
     // duration: u64,         
     // format: String,             
     // resolution: (u32, u32),   
-    iv: [u8;16],         
+    // iv: [u8;16],         
     // created_at: u64
 }
 
@@ -179,7 +179,7 @@ fn encrypt_video(video: &str, certificate: &str, password: &str, output: &str) {
     .expect("Invalid UTF-8 in file name")
     .to_string();
 
-    let metadata = VideoMetadata { filename: file_name, collection_id,iv };
+    let metadata = VideoMetadata { filename: file_name, collection_id };
 
     let metadata_json = serde_json::to_string(&metadata).unwrap();
     let mut reader = BufReader::new(video_file);
