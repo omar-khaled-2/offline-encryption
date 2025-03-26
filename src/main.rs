@@ -1,9 +1,7 @@
 use clap::{Parser, Subcommand};
 use rand::Rng;
 use std::{fs::File, io::{Read, Write}, path::Path};
-
 use aes::Aes128;
-
 use p12_keystore::{KeyStore,KeyStoreEntry, PrivateKeyChain,Certificate};
 use rsa::{pkcs8::DecodePublicKey, Pkcs1v15Encrypt, RsaPublicKey};
 use rcgen::{generate_simple_self_signed, CertifiedKey};
@@ -14,10 +12,7 @@ use ctr::Ctr128BE;
 use serde::{Serialize, Deserialize};
 use uuid::Uuid;
 use sha2::{Sha256, Digest};
-// use zeroize::Zeroize;
-
 type AesCtr = Ctr128BE<Aes128>;
-
 #[derive(Serialize, Deserialize)]
 struct VideoMetadata {
     filename: String,           
@@ -157,7 +152,7 @@ fn generate_access_key(public_key: &str, certificate: &str, password: &str) -> S
     BASE64_STANDARD.encode(encrypted_key)
 }
 
-const BUFFER_SIZE: usize = 1 * 1024 * 1024; 
+const BUFFER_SIZE: usize = 1024 * 1024; 
 fn encrypt_video(video: &str, certificate: &str, password: &str, output: &str) {
 
     let (collection_id,key) = load_aes_key_from_p12(certificate, password);
@@ -191,7 +186,7 @@ fn encrypt_video(video: &str, certificate: &str, password: &str, output: &str) {
     writer.write_all(&[1, 0]).unwrap();
     writer.write_all(&(file_size as u32).to_le_bytes()).unwrap();
     writer.write_all(&(metadata_size as u32).to_le_bytes()).unwrap();
-    let mut buffer = [0u8; BUFFER_SIZE];
+    let mut buffer = vec![0; BUFFER_SIZE];
     while let Ok(bytes_read) = reader.read(&mut buffer) {
         if bytes_read == 0 {
             break;
@@ -199,22 +194,12 @@ fn encrypt_video(video: &str, certificate: &str, password: &str, output: &str) {
         cipher.apply_keystream(&mut buffer[..bytes_read]); 
         writer.write_all(&buffer[..bytes_read]).expect("Failed to write to file");
     }
-
-
-
-
-
     writer.write_all(metadata_json.as_bytes()).unwrap();
 
     let mut hasher = Sha256::new();
-
     hasher.update(key);
     let hash_key = hasher.finalize();
-
     writer.write_all(&hash_key).unwrap();
-
-
-
 }
 
 
