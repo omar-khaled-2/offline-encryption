@@ -69,6 +69,10 @@ fn generate_aes_key() -> [u8; 16] {
 
 
 fn generate_certificate(password: &str, output: &str) {
+    let output_dir = Path::new(output).parent().expect("Invalid output path");
+    if !output_dir.exists() {
+        std::fs::create_dir_all(output_dir).expect("Failed to create output directory");
+    }
     let key = generate_aes_key();
 
 
@@ -115,7 +119,11 @@ fn generate_certificate(password: &str, output: &str) {
 
 
 fn load_aes_key_from_p12(path: &str, password: &str) -> (String, [u8;16]) {
-    let mut certificate_file = File::open(path).unwrap();
+    let certificate_path = Path::new(path);
+    if !certificate_path.exists() {
+        panic!("Certificate file does not exist: {}", path);
+    }
+    let mut certificate_file = File::open(certificate_path).unwrap();
 
     let mut pkcs12_data = vec![];
     let _ =certificate_file.read_to_end(& mut pkcs12_data);
@@ -136,9 +144,6 @@ fn load_aes_key_from_p12(path: &str, password: &str) -> (String, [u8;16]) {
 
 fn load_public_key(base64_key: &str) -> RsaPublicKey {
     let key_bytes = BASE64_STANDARD.decode(base64_key).unwrap();
-    print!("{}",key_bytes.len());
-
-
     let key = RsaPublicKey::from_public_key_der(&key_bytes).unwrap();
     key
 }
@@ -146,14 +151,19 @@ fn load_public_key(base64_key: &str) -> RsaPublicKey {
 
 fn generate_access_key(public_key: &str, certificate: &str, password: &str) -> String {
     let (_, aes_key) = load_aes_key_from_p12(certificate, password);
-    let rsa_key = load_public_key(public_key);
+    let ecdsa_key = load_public_key(public_key);
     let mut rng = rand::thread_rng(); 
-    let encrypted_key: Vec<u8> = rsa_key.encrypt(&mut rng, Pkcs1v15Encrypt, &aes_key).unwrap();
+    let encrypted_key: Vec<u8> = ecdsa_key.encrypt(&mut rng, &aes_key).unwrap();
     BASE64_STANDARD.encode(encrypted_key)
 }
 
 const BUFFER_SIZE: usize = 1024 * 1024; 
 fn encrypt_video(video: &str, certificate: &str, password: &str, output: &str) {
+    let video_path = Path::new(video);
+    if !video_path.exists() {
+        panic!("Video file does not exist: {}", video);
+    }
+    let video_file = File::open(video_path).expect("Failed to open input file");
 
     let (collection_id,key) = load_aes_key_from_p12(certificate, password);
     let iv = [0u8; 16];
